@@ -19,10 +19,10 @@ assets:
   #   - "git-cliff-.*-x86_64-apple-darwin\\.tar\\.gz$"
   # darwin/arm64:
   #   - "git-cliff-.*-aarch64-apple-darwin\\.tar\\.gz$"
-  # windows/amd64:
-  #   - "git-cliff-.*-x86_64-pc-windows-msvc\\.zip$"
-  # windows/arm64:
-  #   - "git-cliff-.*-aarch64-pc-windows-msvc\\.zip$"
+  windows/amd64:
+    - "git-cliff-.*-x86_64-pc-windows-msvc\\.zip$"
+  windows/arm64:
+    - "git-cliff-.*-aarch64-pc-windows-msvc\\.zip$"
 
 asset_type:
   type: archive
@@ -66,12 +66,12 @@ platforms:
   # darwin/arm64:
   #   runner: macos-latest
   #   shell: bash
-  # windows/amd64:
-  #   runner: windows-latest
-  #   shell: pwsh
-  # windows/arm64:
-  #   runner: windows-11-arm
-  #   shell: pwsh
+  windows/amd64:
+    runner: windows-latest
+    shell: pwsh
+  windows/arm64:
+    runner: windows-11-arm
+    shell: pwsh
 
 notify:
   discord:
