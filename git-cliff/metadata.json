@@ -1,5 +1,8 @@
 {
-  "type": "bundle", "version": 1, "env": [
+  "type": "bundle",
+  "version": 1,
+  "binaries": ["git-cliff", "git-cliff-completions", "git-cliff-mangen"],
+  "env": [
     {
       "key": "PATH",
       "type": "path",

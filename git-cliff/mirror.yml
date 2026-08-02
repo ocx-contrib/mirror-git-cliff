@@ -1,0 +1,123 @@
+extends: ../mirror-base.yml
+
+name: git-cliff
+
+# Logical index package `git-cliff/git-cliff` at the physical path
+# `ghcr.io/ocx-contrib/git-cliff/git-cliff` — slash segments, never
+# hyphen-flattened. The first segment must be this repo's own GitHub owner:
+# GITHUB_TOKEN only authorises packages owned by the repo the workflow runs in.
+#
+# Tool-as-namespace: upstream's owner is the personal handle `orhun`, so the
+# tool names itself rather than borrowing a person's account name. `git/cliff`
+# is NOT an option — a namespace is an ownership boundary, and `git` belongs to
+# the Git project, not to this tool.
+#
+# Succeeds the flat `ocx.sh/git-cliff` coordinate this repository published
+# before the grouped layout, the same way mirror-kitware/cmake succeeds
+# mirror-cmake.
+target:
+  registry: ghcr.io
+  repository: ocx-contrib/git-cliff/git-cliff
+
+source:
+  type: github_release
+  owner: orhun
+  repo: git-cliff
+  tag_pattern: "^v(?P<version>\\d+\\.\\d+\\.\\d+)$"
+
+# ─── libc gate (Phase 3.5) — the evidence, not the conclusion ───────────────
+#
+# git-cliff is a Rust build and upstream ships BOTH a `-gnu` and a `-musl`
+# Linux artifact per arch. Measured on v2.13.1 (fleet audit
+# ocx-contrib/.claude/libc-audit-2026-08-01.json):
+#
+#   -x86_64-unknown-linux-gnu   → PIE, interp /lib64/ld-linux-x86-64.so.2,
+#                                 NEEDED libgcc_s.so.1 (non-base), librt,
+#                                 libpthread, libm, libdl, libc
+#   -aarch64-unknown-linux-gnu  → PIE, interp /lib/ld-linux-aarch64.so.1,
+#                                 NEEDED libgcc_s.so.1 (non-base), …
+#   -x86_64-unknown-linux-musl  → no INTERP segment, no NEEDED entries
+#   -aarch64-unknown-linux-musl → no INTERP segment, no NEEDED entries
+#
+# `file` reports the x86_64 musl build as "static-pie linked"; that is still
+# static — a static-PIE carries no PT_INTERP, so nothing on the host loads it.
+#
+# This mirror publishes ONLY the musl build. `os.features` states what an
+# artifact REQUIRES OF THE HOST: the musl builds require nothing, so both Linux
+# keys are BARE — no `+libc.*` suffix. The `-gnu` builds are deliberately NOT
+# carried (fleet rule: when upstream ships both, publish only the static one);
+# adding them would mean a `+libc.glibc` split that buys nothing the static
+# build does not already cover, and drags a libgcc_s.so.1 host requirement in
+# with it. Container legs (ubuntu + alpine + fedora) live in ../mirror-base.yml
+# and are what turn the bare-key claim into evidence.
+#
+# ─── Scope (verified against v2.12.0, the first in-range release, and v2.13.1)
+#
+# Upstream also publishes, and this mirror deliberately does not carry:
+#   *-i686-{pc-windows-msvc,unknown-linux-{gnu,musl}}  — no 32-bit GHA runner
+#   *-x86_64-pc-windows-gnu.zip                        — msvc is the native ABI
+#   *-unknown-linux-gnu.tar.gz                         — see libc gate above
+#   *.tar.gz.sha512 / *.tar.gz.sig                     — sidecars
+#   *.deb, *.rpm, *.spdx.json                          — installers, SBOM
+#
+# The `\.tar\.gz$` / `\.zip$` end-anchors are what keep the sidecars out, and
+# the explicit arch triple keeps the i686 and windows-gnu builds out.
+# Resolution verified BOTH ways across EVERY in-range release (v2.12.0,
+# v2.13.0, v2.13.1): each of the six patterns matches EXACTLY one asset. A
+# pattern matching zero is silently skipped, not an error — it would yield a
+# green run with a missing platform.
+assets:
+  linux/amd64:
+    - "git-cliff-.*-x86_64-unknown-linux-musl\\.tar\\.gz$"
+  linux/arm64:
+    - "git-cliff-.*-aarch64-unknown-linux-musl\\.tar\\.gz$"
+  darwin/amd64:
+    - "git-cliff-.*-x86_64-apple-darwin\\.tar\\.gz$"
+  darwin/arm64:
+    - "git-cliff-.*-aarch64-apple-darwin\\.tar\\.gz$"
+  windows/amd64:
+    - "git-cliff-.*-x86_64-pc-windows-msvc\\.zip$"
+  windows/arm64:
+    - "git-cliff-.*-aarch64-pc-windows-msvc\\.zip$"
+
+asset_type:
+  # Every asset — tarball and zip alike — wraps its payload in a single
+  # `git-cliff-<version>/` directory, so ONE `strip_components: 1` serves all
+  # six platforms and no per-platform override is needed. After the strip the
+  # content root holds `git-cliff` (`.exe` on Windows) plus its two helper
+  # executables, `LICENSE-{MIT,APACHE}`, `README.md`, `CHANGELOG.md`, `man/`
+  # and `completions/`.
+  type: archive
+  strip_components: 1
+
+metadata:
+  default: metadata.json
+
+catalog:
+  logo: logo.svg
+
+versions:
+  # A deliberate backfill window, not a completeness floor — v2.9.x already
+  # ships all six platform assets. 2.12.0 is where this mirror starts.
+  min: "2.12.0"
+  new_per_run: 10
+  poll_interval: "0 */6 * * *"
+
+tests:
+  # `script:` resolves from the REPOSITORY ROOT — unlike `metadata.default` and
+  # `catalog.logo` above, which resolve against this spec's own directory.
+  - name: smoke
+    script: git-cliff/tests/smoke.star
+
+annotations:
+  # From the Phase 1.5 license gate. Upstream is dual-licensed — the repo ships
+  # both LICENSE-MIT and LICENSE-APACHE, and git-cliff/Cargo.toml declares
+  # `license = "MIT OR Apache-2.0"`. (The GitHub license API reports the single
+  # id `Apache-2.0`; it picks one and is NOT the authority here.)
+  org.opencontainers.image.licenses: "MIT OR Apache-2.0"
+
+announce:
+  # Spelled out, not derived from target.repository — the logical name and the
+  # physical path are related by convention only.
+  package: git-cliff/git-cliff
+  fork: ocx-contrib/index
